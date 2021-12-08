@@ -1,0 +1,109 @@
+---
+title: "Text analysis task3"
+author: "Daniel(Chen) Xu BUID:U49903384"
+date: "12/07/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=F,message = F,echo=F,highlight=F)
+knitr::opts_chunk$set(fig.width=8, fig.height=6,fig.align = "center") 
+pacman::p_load("tidyverse","magrittr","knitr","gutenbergr","tidytext","sentimentr")
+```
+
+## Task 1 Pick a book
+
+I choose `Twenty Thousand Leagues under the Sea` written by Jules Verne as the book for my text analysis assignment. 
+
+```{r}
+# Download my selected book from gutenberg
+my_book = gutenberg_download(c(164))
+#write.table(my_book,'selected_book.txt',row.names = F)
+```
+
+```{r}
+library(tnum)
+tnum.authorize("mssp1.bu.edu")
+tnum.setSpace("test2")
+source("Book2TN-v6A-1.R")
+```
+
+
+```{r}
+my_select_book <- read.table('selected_book.txt',header = T)
+```
+
+
+## task 3 sentence-level analysis
+
+### tnum
+
+First, I put the book into tnum, the following table shows evidence of my tnum database.
+
+
+```{r}
+#tnBooksFromLines(mybook$text, "jv_ttluts/textanalysis1")
+tnum.getDBPathList(taxonomy = "subject", max = 200, levels = 2)
+```
+
+
+
+```{r}
+# Using tnum to query a dataframe for my book:
+df_jv_general <- tnum.query('jv_ttluts/textanalysis1# has text', max=7000) %>% tnum.objectsToDf()
+df_jv <- tnum.query('jv_ttluts/textanalysis1/section# has text', max=7000) %>% tnum.objectsToDf()
+# View(df_jv)
+# Seperate column subject into path1, pathe2, section, paragraph and sentence and select only sentence out:
+book_sentence_jv <- df_jv %>% separate(col=subject,
+                  into = c("path1", "path2","section","paragraph","sentence"), 
+                  sep = "/", 
+                  fill = "right") %>% 
+  select(section:string.value)
+
+# View(book_sentence_jv)
+
+# Filter only numbers out: (section:0001 -> 1):
+book_sentence_jv <- book_sentence_jv %>% mutate_at(c('section','paragraph','sentence'),~str_extract_all(.,"\\d+") %>% unlist() %>% as.numeric())
+
+# Create a new variable to store the string.value and use sentiment_by() to approximate the sentiment (polarity) of text by grouping variable(s):
+jv_sentence <- book_sentence_jv %>% dplyr::mutate(sentence_split = get_sentences(string.value)) %$%
+    sentiment_by(sentence_split, list(section))
+
+# Plot the scatterplot to show sentiment value and sd:
+plot(jv_sentence)
+
+# Plot the line for emotion of my book:
+plot(uncombine(jv_sentence))
+```
+
+### Compare this analysis with the analysis you did in Task TWO
+
+It is difficult to directly compare Sentimentr and Bing's score. Therefore, I apply `scale` function to standardize two sentiment values generated from two tasks into the same criteria. Then I use ggplot to plot barchart plot. From the Figure below, we can see that the trends that positive and negetive directions are approximately similar. But the exact number differs from two methods. Generally, as we can see from the figure blow, Bing lexicons text analysis method is more optimistic than sentimentr package.
+
+```{r fig.cap="sentiment comparison"}
+# modify the code in task2 and prepare for comparison:
+new_bing_as<-tidy_select_book %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "Bing et al.") %>% 
+    count(method, index = chapter, sentiment) %>%
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+# standardize for sentiment value from task2:
+new_bing2_as <- new_bing_as %>% mutate(bing_scale=scale(sentiment)) %>% select(method,index,bing_scale)
+colnames(new_bing2_as)[2]='section'
+
+# standardize for sentiment value from task3:
+jv_task3 <- jv_sentence %>% mutate(sentimentr_scale=scale(ave_sentiment))
+
+# Join for comparison:
+jv_task3_2method <- left_join(jv_task3,new_bing2,by='section')%>% select(section,bing_scale,sentimentr_scale)
+jv_task3_2method_plot <- jv_task3_2method %>% pivot_longer(cols=c('sentimentr_scale','bing_scale'),names_to = 'sentiment')
+
+# Plot the comparison:
+jv_task3_2method_plot %>% ggplot(aes(y=value,x=factor(section))) +
+  geom_bar(aes(fill=factor(sentiment)),stat='identity',position = "dodge",width = 0.7) + theme_bw()
+```
+
