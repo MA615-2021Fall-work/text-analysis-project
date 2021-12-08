@@ -34,6 +34,18 @@ my_select_book <- read.table('selected_book.txt',header = T)
 ```
 
 
+I use three types of sentiment analysis methods AFINN, Bing and NRC to plot barchart plots to compare these methods. From the graph below, the AFINN and Bing method fits better. From the sentiment analysis plot, we can see that scores for positive/negative sentiment in `Twenty Thousand Leagues under the Sea` seems balanced throughout the whole book.
+
+Twenty Thousand Leagues Under the Sea tells the story of marine biologist Pierre Aronnax, his manservant Conseil and harpoonist Ned Land, who – after joining the hunt for a mysterious sea monster – are thrown overboard when the monster attacks and find themselves prisoners of Captain Nemo, probably one of Verne’s most memorable yet elusive characters. On board the Nautilus, a technologically advanced submarine that everyone has mistaken for a sea monster, the three companions get to experience the vast and endlessly fascinating world under the sea. In 1866, a monster suspected of being a narwhal was discovered on the sea, and Professor Aronnax and his servant Conseil were invited to join the hunt. In pursuit, they and Their harpooner Ned Land fell overboard and landed on the monster's back. They discovered that the monster was not a narwhal, but a strangely constructed submarine. Nemo secretly built the submarine on a deserted island in the middle of the ocean. It was sturdy and powered by seawater. Captain Nemo invited Aronnax on a voyage under the sea. They set out from the Pacific, passed coral islands, the Indian Ocean, the Red Sea, the Mediterranean Sea, the Atlantic Ocean, and saw many rare plants and animals and strange sights in the sea. On the way, I also experienced a lot of dangerous situations, such as stranding, aboriginal siege, shark fighting, iceberg blocking, octopus attack and so on. Finally, when the submarine reached the Norwegian coast, the three men left without saying goodbye and returned to his hometown.
+
+That is to say, at the beginning of the book, the sentiment of the book is negative, but soon it converts into positive sentiment. And converts to be negative when goes to the end of the book. However, it is difficult to identify which of the two methods is better. In the following task, I use Bing method to conduct further analysis.
+
+```{r}
+tidy_select_book <- my_select_book %>% mutate(linenumber = row_number(),
+                                 chapter = cumsum(str_detect(text, regex("<", ignore_case = TRUE)))) %>%
+  unnest_tokens(word, text)
+```
+
 ## task 3 sentence-level analysis
 
 ### tnum
@@ -99,7 +111,7 @@ colnames(new_bing2_as)[2]='section'
 jv_task3 <- jv_sentence %>% mutate(sentimentr_scale=scale(ave_sentiment))
 
 # Join for comparison:
-jv_task3_2method <- left_join(jv_task3,new_bing2,by='section')%>% select(section,bing_scale,sentimentr_scale)
+jv_task3_2method <- left_join(jv_task3,new_bing2_as,by='section')%>% select(section,bing_scale,sentimentr_scale)
 jv_task3_2method_plot <- jv_task3_2method %>% pivot_longer(cols=c('sentimentr_scale','bing_scale'),names_to = 'sentiment')
 
 # Plot the comparison:
